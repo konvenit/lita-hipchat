@@ -5,17 +5,24 @@ require "xmpp4r/roster/helper/roster"
 require "xmpp4r/muc/helper/simplemucclient"
 require "xmpp4r/muc/helper/mucbrowser"
 
+require 'rest-client'
+require "uri"
+require "json"
+
 module Lita
   module Adapters
     class HipChat < Adapter
       class Connector
         attr_reader :robot, :client, :roster
 
-        def initialize(robot, jid, password, server, debug: false)
+        def initialize(robot, jid, password, server, api_domain, api_token, api_room_mapping, debug: false)
           @robot = robot
           @jid = normalized_jid(jid, "chat.hipchat.com", "bot")
           @password = password
           @server = server
+          @api_domain = api_domain
+          @api_token = api_token
+          @api_room_mapping = api_room_mapping
           @client = Jabber::Client.new(@jid)
           if debug
             Lita.logger.info("Enabling Jabber log.")
@@ -73,8 +80,12 @@ module Lita
         def message_muc(room_jid, strings)
           muc = mucs[room_jid]
           strings.each do |s|
-            Lita.logger.debug("Sending message to MUC #{room_jid}: #{s}")
-            muc.say(encode_string(s))
+            if s.is_a? Hash
+              api_message(room_jid, muc, s)
+            else
+              Lita.logger.debug("Sending message to MUC #{room_jid}: #{s}")
+              muc.say(encode_string(s))
+            end
           end if muc
         end
 
@@ -130,6 +141,13 @@ module Lita
 
         def register_muc_message_callback(muc)
           Callback.new(robot, roster).muc_message(muc)
+        end
+
+        def api_message(room_jid, muc, hash)
+          room = room_jid.split('@').first.split('_')[1..-1].join('_')
+          room = @api_room_mapping[room]
+          url  = URI.encode "https://#{@api_domain}.hipchat.com/v2/room/#{room}/notification?auth_token=#{@api_token}"
+          RestClient.post url, JSON.dump(hash), :content_type => "application/json"
         end
 
         def load_roster

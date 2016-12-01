@@ -16,6 +16,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency "lita", ">= 4.4.3"
   spec.add_runtime_dependency "xmpp4r", ">= 0.5.6"
+  spec.add_runtime_dependency 'rest-client'
 
   spec.add_development_dependency "bundler", "~> 1.3"
   spec.add_development_dependency "rake"
